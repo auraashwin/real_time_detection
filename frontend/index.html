@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>YOLOv8 Real-time Object Detection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f3f4f6;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #wrapper {
+      position: relative;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen gap-4 p-4">
+
+  <h1 class="text-3xl font-bold text-gray-800 mb-4">🔍 Ashwin's Real-time Object Detection</h1>
+
+  <div id="wrapper">
+    <video id="video" autoplay playsinline class="rounded-xl shadow-lg"></video>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <p class="text-gray-500 text-sm mt-4">Built with ❤️</p>
+
+  <script>
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        video.addEventListener("loadedmetadata", () => {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          detectFrame();
+        });
+      });
+
+    async function detectFrame() {
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+
+      tempCanvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append("file", blob, "frame.jpg");
+
+        try {
+          const response = await fetch("http://localhost:8000/detect/", {
+            method: "POST",
+            body: formData
+          });
+
+          const result = await response.json();
+          drawBoxes(result.detections);
+        } catch (err) {
+          console.error("Detection error:", err);
+        } finally {
+          requestAnimationFrame(detectFrame);
+        }
+      }, "image/jpeg");
+    }
+
+    function drawBoxes(detections) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let det of detections) {
+        const [x1, y1, x2, y2] = det.box;
+
+        ctx.beginPath();
+        ctx.rect(x1, y1, x2 - x1, y2 - y1);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#ef4444";
+        ctx.stroke();
+
+        ctx.fillStyle = "#ef4444";
+        ctx.font = "16px sans-serif";
+        const label = `${det.label} ${det.confidence.toFixed(2)}`;
+        ctx.fillText(label, x1 + 4, y1 > 20 ? y1 - 8 : y1 + 18);
+      }
+    }
+  </script>
+</body>
+</html>
