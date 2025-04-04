@@ -1,4 +1,4 @@
-fast api
+fastapi
 flask
 ultralytics
 opencv-python
